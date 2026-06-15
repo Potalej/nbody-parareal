@@ -2,8 +2,8 @@
 
 <p align="center">
     <img src="https://img.shields.io/github/languages/top/potalej/nbody-parareal?label=Fortran&logo=fortran&labelColor=%236f4c91&color=gray" alt="fortran">
-    <img src="https://img.shields.io/github/languages/code-size/potalej/nbody-parareal?label=Size&labelColor=%236f4c91&color=gray" alt="tamanho">
-    <img src="https://img.shields.io/github/last-commit/potalej/nbody-parareal?label=Last change&labelColor=%236f4c91&color=gray" alt="ultimo commit">
+    <img src="https://img.shields.io/github/languages/code-size/potalej/nbody-parareal?label=Size&labelColor=%236f4c91&color=gray" alt="Size">
+    <img src="https://img.shields.io/github/last-commit/potalej/nbody-parareal?label=Modified&labelColor=%236f4c91&color=gray" alt="Last Commit">
     <img src="https://img.shields.io/github/issues/potalej/nbody-parareal?label=issues&labelColor=%236f4c91&color=gray" alt="issues">
 </p>
 
