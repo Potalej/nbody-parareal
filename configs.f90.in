@@ -1,0 +1,64 @@
+MODULE configs_mod
+    USE iso_fortran_env, ONLY: output_unit
+    IMPLICIT NONE
+    PUBLIC
+
+    ! levels: 0 - stops, 1 - general messages, 2 - debug
+    INTEGER :: print_level = @PRINT_LEVEL@
+
+    ! versioning
+    CHARACTER(LEN=*), PARAMETER :: version_string = "@PROJECT_VERSION@"
+    CHARACTER(LEN=*), PARAMETER :: build_date = "@BUILD_DATE@"
+    CHARACTER(LEN=*), PARAMETER :: build_time = "@BUILD_TIME@"
+    CHARACTER(LEN=*), PARAMETER :: precision = "real@PRECISION@"
+
+CONTAINS 
+
+SUBROUTINE msg (text, level, fmt_par)
+    CHARACTER(LEN=*) :: text
+    INTEGER :: level
+    CHARACTER(LEN=*), OPTIONAL :: fmt_par
+    CHARACTER(LEN=:), ALLOCATABLE :: fmt
+
+    IF (PRESENT(fmt_par)) THEN
+        ALLOCATE(CHARACTER(LEN=LEN(fmt_par)) :: fmt)
+        fmt = fmt_par
+    ELSE
+        ALLOCATE(CHARACTER(3) :: fmt)
+        fmt = "(A)"
+    ENDIF
+
+    ! urgent messages
+    IF (level == 0 .AND. level <= print_level) THEN
+        WRITE (*, fmt) text
+
+    ! general messages
+    ELSE IF (level == 1 .AND. level <= print_level) THEN
+        WRITE (*, fmt) text
+
+    ! debug
+    ELSE IF (level == 2 .AND. level <= print_level) THEN
+        WRITE (*, fmt) "[debug] " // text
+    ENDIF
+
+    DEALLOCATE(fmt)
+END SUBROUTINE
+
+SUBROUTINE header (output)
+    INTEGER, OPTIONAL, INTENT(IN) :: output
+    INTEGER :: out_unit
+  
+    out_unit = output_unit
+    IF (PRESENT(output)) out_unit = output
+
+    WRITE(out_unit,*)
+    WRITE(out_unit,'(A)') "|==================================================================|"
+    WRITE(out_unit,'(A)') "|       _             _                                         _  |"
+    WRITE(out_unit,'(A)') "|  _ _ | |__  ___  __| |_  _   _ __  __ _ _ _ __ _ _ _ ___ __ _| | |"
+    WRITE(out_unit,'(A)') "| | ' \| '_ \/ _ \/ _` | || | | '_ \/ _` | '_/ _` | '_/ -_) _` | | |"
+    WRITE(out_unit,'(A)') "| |_||_|_.__/\___/\__,_|\_, | | .__/\__,_|_| \__,_|_| \___\__,_|_| |"
+    WRITE(out_unit,'(A)') "|                       |__/  |_|                                  |"
+    WRITE(out_unit,'(A)') "|==================================================================|"
+END SUBROUTINE
+
+END MODULE

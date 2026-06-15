@@ -1,0 +1,42 @@
+{
+    "name": "Parareal random initial values file",
+    "type": "random",
+    
+    "N": 1000,
+    "G": 1.0,
+
+    "random_parameters": {
+        "qs_range": 10.0,
+        "ps_range": 0.0,
+        "masses_value": -1,
+        "normalized_masses": true,
+        "2d": false
+    },
+
+    "integration": {
+        "tf": 10.0,
+        "softening": 0.01,
+
+        "type": "parareal",
+        "number_of_windows": 30,
+        "N_itermax": 15,
+        "tolerance": 1e-20,
+        "parareal_parallel": true,
+
+        "coarse": {
+            "method": "symp_euler",
+            "dt_mult": 1,
+            "forces_method": "bh",
+            "forces_angle": 1.0,
+            "forces_parallel": true
+        },
+
+        "fine": {
+            "method": "verlet",
+            "dt_mult": 8,
+            "forces_method": "direct",
+            "forces_angle": 0.0,
+            "forces_parallel": false
+        }
+    }
+}

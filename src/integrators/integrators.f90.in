@@ -1,0 +1,64 @@
+! ************************************************************
+!! Integrators
+!
+!> Objectives
+!  Base-file to manipulate all the ingrators available using
+!  CMake.
+!
+!> Modified
+!  2026.06.15
+!
+!> Author
+!  oap
+!
+MODULE integrators_mod
+!> Root module of integrator
+  USE integrator_mod, only: integrator_type
+  USE configs_mod
+
+!> Import of all integrators available
+@INTEGRATORS_USE@
+  IMPLICIT NONE
+  PRIVATE
+  PUBLIC define_method, list_available_integrators
+
+! Adding targets to the pointer of the integrator
+@INTEGRATORS_CLASSES@
+CONTAINS
+
+! ************************************************************
+!! Defines the integrator using the string
+!
+!> Modified
+!  2026.06.15
+!
+!> Author
+!  oap
+! 
+SUBROUTINE define_method (integrator, method)
+  CLASS(integrator_type), POINTER, INTENT(OUT) :: integrator
+  CHARACTER(LEN=*), INTENT(IN) :: method
+
+  CALL msg("[integrators] Method: "//TRIM(method), 2)
+  
+  SELECT CASE (TRIM(method))
+@INTEGRATORS_SELECT@
+    CASE DEFAULT;       WRITE(*,*) 'Method not identified!'
+  END SELECT
+
+END SUBROUTINE
+
+! ************************************************************
+!! List all the avaiable integrators
+!
+!> Modified
+!  2026.06.15
+!
+!> Author
+!  oap
+! 
+SUBROUTINE list_available_integrators ()
+@INTEGRATORS_LIST@
+END SUBROUTINE
+
+END MODULE

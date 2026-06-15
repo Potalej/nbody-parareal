@@ -1,0 +1,37 @@
+{
+    "name": "Sequential default initial values file - Lemniscata",
+    "type": "initial_values",
+
+    "N": 3,
+    "G": 1.0,
+
+    "integration": {
+        "tf": 50.0,
+        "softening": 0.05,
+
+        "type": "sequential",
+        "timestep": 0.01,
+        "method": "symp_euler",
+        "checkpoints": 10,
+
+        "forces_method": "direct",
+        "forces_angle": 1.0,
+        "forces_parallel": false
+    },
+
+    "initial_values": {
+        "masses": [
+            1.0, 1.0, 1.0
+        ],
+        "positions": [
+            [-0.97000436,  0.24308753, 0.0],
+            [0.0,         0.0,        0.0],
+            [0.97000436, -0.24308753, 0.0]
+        ],
+        "momenta": [
+            [0.4662036850, 0.4323657300, 0.0],
+            [-0.93240737,  -0.86473146,   0.0],
+            [ 0.4662036850, 0.4323657300, 0.0]
+        ]
+    }
+}

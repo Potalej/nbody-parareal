@@ -1,0 +1,50 @@
+{
+    "name": "Parareal example of initial values file - lemniscata",
+    "type": "initial_values",
+    
+    "N": 3,
+    "G": 1.0,
+
+    "integration": {
+        "tf": 5.0,
+        "softening": 0.0,
+
+        "type": "parareal",
+        "number_of_windows": 30,
+        "N_itermax": 30,
+        "tolerance": 1e-10,
+        "parareal_parallel": false,
+
+        "coarse": {
+            "method": "verlet",
+            "dt_mult": 4,
+            "forces_method": "bh",
+            "forces_angle": 0.5,
+            "forces_parallel": false
+        },
+
+        "fine": {
+            "method": "verlet",
+            "dt_mult": 16,
+            "forces_method": "direct",
+            "forces_angle": 0.0,
+            "forces_parallel": false
+        }
+    },
+
+    "initial_values": {
+        "masses": [
+            1.0, 1.0, 1.0
+        ],
+        "positions": [
+            [-0.97000436,  0.24308753, 0.0],
+            [0.0,         0.0,        0.0],
+            [0.97000436, -0.24308753, 0.0]
+        ],
+        "momenta": [
+            [0.4662036850, 0.4323657300, 0.0],
+            [-0.93240737,  -0.86473146,   0.0],
+            [ 0.4662036850, 0.4323657300, 0.0]
+        ]
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "name": "Sequential random initial values file",
+    "type": "random",
+
+    "N": 10,
+    "G": 1.0,
+
+    "random_parameters": {
+        "qs_range": 10.0,
+        "ps_range": 0.0,
+        "masses_value": -1,
+        "normalized_masses": true,
+        "2d": false
+    },
+
+    "integration": {
+        "tf": 1000.0,
+        "softening": 0.03,
+
+        "type": "sequential",
+        "timestep": 0.01,
+        "method": "verlet",
+        "checkpoints": 10,
+
+        "forces_method": "direct",
+        "forces_angle": 0.0,
+        "forces_parallel": false
+    }
+}
