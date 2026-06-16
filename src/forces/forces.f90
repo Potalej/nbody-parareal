@@ -7,7 +7,7 @@
 !  the integrator_type.
 !
 !> Modified
-!  2026.06.15
+!  2026.06.16
 !
 !> Created
 !  2026.06.15
@@ -163,8 +163,7 @@ FUNCTION compute_forces_bh (N, ms, qs, G, eps2, angle2) RESULT (forces)
     INTEGER :: p
     REAL(pf) :: forces(N, 3)
 
-    CALL tree % init(ms, qs(:,1), qs(:,2), qs(:,3))
-    CALL tree % evaluate_quad()
+    CALL tree % init(ms, qs(:,1), qs(:,2), qs(:,3), .TRUE.)
 
     DO p = 1, N
         forces(p,:) = tree % forces(p, angle2, G, eps2)
@@ -181,8 +180,7 @@ FUNCTION compute_forces_bh_par (N, ms, qs, G, eps2, angle2) RESULT (forces)
     INTEGER :: p
     REAL(pf) :: forces(N, 3)
 
-    CALL tree % init(ms, qs(:,1), qs(:,2), qs(:,3))
-    CALL tree % evaluate_quad()
+    CALL tree % init(ms, qs(:,1), qs(:,2), qs(:,3), .FALSE.)
 
     !$OMP PARALLEL SHARED(forces) PRIVATE(p) 
     !$OMP DO

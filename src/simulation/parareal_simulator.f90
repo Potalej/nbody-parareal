@@ -5,7 +5,7 @@
 !  This module contains the Parareal simulator.
 !
 !> Modified
-!  2026.06.15
+!  2026.06.16
 !
 !> Created
 !  2026.06.15
@@ -26,7 +26,7 @@ MODULE parareal_simulator_mod
 
     TYPE :: parareal_simulation_type
         INTEGER  :: N
-        REAL(pf) :: tf
+        REAL(pf) :: G, softening, tf
         REAL(pf), ALLOCATABLE, DIMENSION(:)   :: masses
         REAL(pf), ALLOCATABLE, DIMENSION(:,:) :: qs0, ps0
         REAL(pf), ALLOCATABLE, DIMENSION(:,:) :: qs, ps
@@ -96,6 +96,8 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
     ALLOCATE(self % ps(N,3))
     self % ps0 = ps0
     self % ps = ps0
+    self % G = G
+    self % softening = co_fs
 
     ! parareal configs
     self % number_of_windows = num_of_windows
@@ -155,7 +157,7 @@ SUBROUTINE run (self, output_file_par)
     U0(1:N, :) = self % qs0
     U0(N+1:,:) = self % ps0
 
-    ALLOCATE(U(self % N_itermax, self % number_of_windows, 2*N, 3))
+    ALLOCATE(U(self % N_itermax+1, self % number_of_windows, 2*N, 3))
     U = 0.0_pf
 
     ALLOCATE(U_tilde(self % number_of_windows, 2*N, 3))
@@ -168,7 +170,7 @@ SUBROUTINE run (self, output_file_par)
     END DO
 
     timer_total = 0
-    DO iterations = 1, self % N_itermax - 1
+    DO iterations = 1, self % N_itermax
         timer_0 = omp_get_wtime()
         U(iterations + 1, 1, :, :) = U0
         U_tilde(1,:,:) = U0
@@ -214,6 +216,14 @@ SUBROUTINE run (self, output_file_par)
 
         IF (error <= self % tolerance) EXIT
     END DO
+
+    WRITE(*,"(A)") "Simulation complete!"
+    WRITE(*,"(A,E12.3)") "Total time:", omp_get_wtime() - timer_0
+    WRITE(*,"(A,I4)") "Iterations:", iterations
+    WRITE(*,"(A,E12.3)") "Final rel. error:", error
+    WRITE(*,'(A15," = ",ES12.4)') '||E - E_0||', error_E
+    WRITE(*,'(A15," = ",ES12.4)') '||J - J_0||', error_J
+    WRITE(*,'(A15," = ",ES12.4)') '||P - P_0||', error_P
 
     IF (output_file > 0) THEN
         DO i = 1, self % number_of_windows

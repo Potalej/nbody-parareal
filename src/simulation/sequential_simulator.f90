@@ -6,7 +6,7 @@
 !  classical N-body simulator.
 !
 !> Modified
-!  2026.06.15
+!  2026.06.16
 !
 !> Created
 !  2026.06.15
@@ -120,8 +120,8 @@ SUBROUTINE run (self, output_file_par)
         IF (substep == number_substeps) THEN
             substep = 0
             error_E = ABS(total_energy(self%masses, self%qs, self%ps, self % G, self % softening) - init_E)
-            error_J = NORM2(total_linear_momentum(self%ps) - init_J)
-            error_P = NORM2(total_angular_momentum(self%qs, self%ps) - init_P)
+            error_J = NORM2(total_angular_momentum(self%qs, self%ps) - init_J)
+            error_P = NORM2(total_linear_momentum(self%ps) - init_P)
 
             WRITE(*,"(A4,E12.5, A17,E12.3)") "t = ", self % t, " / time elapsed: ", omp_get_wtime() - timer_0
             WRITE(*,'(A15," = ",ES12.4)') '||E - E_0||', error_E
@@ -134,8 +134,8 @@ SUBROUTINE run (self, output_file_par)
     WRITE(*,"(A,E12.3)") "Simulation complete! Total time:", omp_get_wtime() - timer_0
 
     error_E = ABS(total_energy(self%masses, self%qs, self%ps, self % G, self % softening) - init_E)
-    error_J = NORM2(total_linear_momentum(self%ps) - init_J)
-    error_P = NORM2(total_angular_momentum(self%qs, self%ps) - init_P)
+    error_J = NORM2(total_angular_momentum(self%qs, self%ps) - init_J)
+    error_P = NORM2(total_linear_momentum(self%ps) - init_P)
     WRITE(*,'(A15," = ",ES12.4)') '||E - E_0||', error_E
     WRITE(*,'(A15," = ",ES12.4)') '||J - J_0||', error_J
     WRITE(*,'(A15," = ",ES12.4)') '||P - P_0||', error_P

@@ -7,7 +7,7 @@
 !  approximation with a quadrupole expansion.
 !
 !> Modified
-!  2026.06.15
+!  2026.06.16
 !
 !> Created
 !  2026.06.15
@@ -27,6 +27,8 @@ MODULE octree_mod
         INTEGER :: max_depth = 32
         ! amplificator of the size of the quadtree-root
         REAL(pf) :: side_amplificator = 1.2_pf
+        ! multipole
+        INTEGER :: multipole
 
         ! to save_txt
         INTEGER :: save_txt
@@ -50,16 +52,17 @@ MODULE octree_mod
         PROCEDURE :: init
         PROCEDURE :: allocate_nodes, add_node, allocate_subnode, add_to_subnode, add
         PROCEDURE :: forces => evaluate_forces_over_p
-        PROCEDURE :: evaluate_quad, evaluate_quad_aprox
+        PROCEDURE :: evaluate_quadrupole, evaluate_quadrupole_aprox
     END TYPE
 
 CONTAINS
 
-SUBROUTINE init (self, m, x, y, z, save_txt)
+SUBROUTINE init (self, m, x, y, z, use_multipole, save_txt)
 ! this subroutine inits the tree by allocating the global vectors and adding each particle
-! in a node. if its the case it saves the root information too.
+! in a node. if its the case it saves the root in1formation too.
     CLASS(OctreeType), INTENT(INOUT) :: self
     REAL(pf), INTENT(IN) :: m(:), x(:), y(:), z(:)
+    LOGICAL, INTENT(IN) :: use_multipole
     INTEGER, OPTIONAL :: save_txt
     REAL(pf) :: infos_root(4)
     INTEGER :: p, idx_root
@@ -94,6 +97,15 @@ SUBROUTINE init (self, m, x, y, z, save_txt)
     DO p = 1, self % N
         CALL self % add(idx_root, p)
     END DO
+
+    ! if wants to use multipole
+    IF (use_multipole) THEN
+        ! use quadrupole only for now
+        CALL self % evaluate_quadrupole()
+        self % multipole = 4
+    ELSE
+        self % multipole = 1
+    ENDIF
 END SUBROUTINE
 
 SUBROUTINE allocate_nodes (self)
@@ -383,7 +395,7 @@ SUBROUTINE add (self, node_idx, p)
     CALL self % add_to_subnode(node_idx, p)
 END SUBROUTINE
 
-SUBROUTINE evaluate_quad_aprox (self, par_node_idx)
+SUBROUTINE evaluate_quadrupole_aprox (self, par_node_idx)
     CLASS(OctreeType), INTENT(INOUT) :: self
     INTEGER, OPTIONAL :: par_node_idx
     INTEGER :: node_idx, child_idx, i
@@ -402,7 +414,7 @@ SUBROUTINE evaluate_quad_aprox (self, par_node_idx)
 
         ! if its a node, evaluate the node
         IF (self % ns_type(child_idx) == 2) THEN
-            CALL self % evaluate_quad_aprox(child_idx)
+            CALL self % evaluate_quadrupole_aprox(child_idx)
         ENDIF
 
         ! get information
@@ -426,7 +438,7 @@ SUBROUTINE evaluate_quad_aprox (self, par_node_idx)
 END SUBROUTINE
 
 
-SUBROUTINE evaluate_quad (self)
+SUBROUTINE evaluate_quadrupole (self)
     CLASS(OctreeType), INTENT(INOUT) :: self
     INTEGER :: i, child_idx, p, node_idx
     REAL(pf) :: pm, px, py, pz
@@ -558,7 +570,7 @@ FUNCTION evaluate_forces_over_p (self, p, par_theta2, par_G, par_eps2) RESULT (f
 
         ! leaf or bh criterion
         IF (self % ns_type(node_idx) == 1 .OR. L2 < theta2 * dist2) THEN
-            IF (self % ns_type(node_idx) == 1) THEN
+            IF (self % ns_type(node_idx) == 1 .OR. self % multipole == 1) THEN
                 rinv = 1.0_pf / SQRT(dist2 + eps2)
                 rinv = rinv * rinv * rinv
                 f = G * pm * self % ns_mass(node_idx) * rinv
