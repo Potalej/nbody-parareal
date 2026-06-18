@@ -15,7 +15,6 @@ CACHE STRING "List of integrators")
 
 # Formated lists to Fortran
 set(INTEGRATORS_USE "")
-set(INTEGRATORS_CLASSES "")
 set(INTEGRATORS_LIST "")
 set(INTEGRATORS_SELECT "")
 
@@ -27,11 +26,8 @@ foreach(src ${INTEGRATORS_SOURCE})
   # 'USE' in the script
   string(APPEND INTEGRATORS_USE "  USE ${fname}_integrator_mod\n")
 
-  # TYPE in the script
-  string(APPEND INTEGRATORS_CLASSES "  TYPE(${fname}_integrator_type), TARGET, SAVE :: INT_${fname}\n")
-
   # CASE of the method in the script
-  string(APPEND INTEGRATORS_SELECT "    CASE ('${fname}'); integrator => INT_${fname}\n")
+  string(APPEND INTEGRATORS_SELECT "    CASE ('${fname}'); ALLOCATE(${fname}_integrator_type :: integrator)\n")
 endforeach()
 
 SET(COUNTER 0)

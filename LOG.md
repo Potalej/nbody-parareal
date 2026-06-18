@@ -1,5 +1,8 @@
 # LOG.md - Development diary
 
+## [2026-06-18] v0.0.2: Bux fixes
+- The integrators pointers was pointing to the same object, so using the same method as coarse and as fine wasn't working. Now it is.
+
 ## [2026-06-15] v0.0.1: _lerigo_!
 
 First implementation of the program!

@@ -6,7 +6,7 @@
 !  integrators in the program.
 !
 !> Modified
-!  2026.06.15
+!  2026.06.18
 !
 !> Created
 !  2026.06.15
@@ -23,7 +23,6 @@ MODULE integrator_mod
     PRIVATE
 
     TYPE :: integrator_type
-        CHARACTER(30) :: name
         REAL(pf) :: dt
         INTEGER  :: N
         REAL(pf), ALLOCATABLE :: masses(:), inv_masses(:,:)
