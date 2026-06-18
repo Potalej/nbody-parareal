@@ -1,5 +1,8 @@
 # LOG.md - Development diary
 
+## [2026-06-18] v0.0.3: ops
+- Linking utils module to the simulators.
+
 ## [2026-06-18] v0.0.2: Bux fixes
 - The integrators pointers was pointing to the same object, so using the same method as coarse and as fine wasn't working. Now it is.
 

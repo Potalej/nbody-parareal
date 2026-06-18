@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project("nbody_parareal" VERSION 0.0.2
+project("nbody_parareal" VERSION 0.0.3
         DESCRIPTION "Nbody solver using the Parareal method!"
         LANGUAGES Fortran)
 enable_language(Fortran)
@@ -177,6 +177,16 @@ target_link_libraries(integration PRIVATE forces)
 # ============================================================================
 
 # ============================================================================
+#> utils
+# ----------------------------------------------------------------------------
+add_library(utils
+  "./src/utils.f90"
+)
+target_link_libraries(utils PRIVATE types)
+
+# ============================================================================
+
+# ============================================================================
 #> Simulation
 # ----------------------------------------------------------------------------
 add_library(simulation
@@ -185,17 +195,7 @@ add_library(simulation
 )
 target_link_libraries(simulation PRIVATE types)
 target_link_libraries(simulation PRIVATE integration)
-
-# ============================================================================
-
-
-# ============================================================================
-#> utils
-# ----------------------------------------------------------------------------
-add_library(utils
-  "./src/utils.f90"
-)
-target_link_libraries(utils PRIVATE types)
+target_link_libraries(simulation PRIVATE utils)
 
 # ============================================================================
 
