@@ -6,7 +6,7 @@
 !  classical N-body simulator.
 !
 !> Modified
-!  2026.06.16
+!  2026.06.18
 !
 !> Created
 !  2026.06.15
@@ -28,7 +28,7 @@ MODULE sequential_simulator_mod
     TYPE :: sequential_simulation_type
         INTEGER :: N, checkpoints
         REAL(pf) :: G, softening, t, dt, tf
-        CLASS(integrator_type), POINTER :: integrator
+        CLASS(integrator_type), POINTER :: integrator => NULL()
         REAL(pf), ALLOCATABLE, DIMENSION(:)   :: masses
         REAL(pf), ALLOCATABLE, DIMENSION(:,:) :: qs0, ps0
         REAL(pf), ALLOCATABLE, DIMENSION(:,:) :: qs, ps, fs
@@ -76,6 +76,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, dt, tf, method, checkpoints, G, fsoft, fa
 
     ! integrator
     CALL msg('[seq. sim.] defining the method', 2)
+    ALLOCATE(self % integrator)
     CALL define_method(self % integrator, method)
     CALL msg('[seq. sim.] initializing the integrator', 2)
     CALL self % integrator % init(m, dt, fmethod, fangle, fpar, G, fsoft)
@@ -100,8 +101,8 @@ SUBROUTINE run (self, output_file_par)
     number_substeps = NINT(1.0_pf * total_steps / self % checkpoints)
 
     init_E = total_energy(self%masses, self%qs0, self%ps0, self % G, self % softening)
-    init_J = total_linear_momentum(self%ps0)
-    init_P = total_angular_momentum(self%qs0, self%ps0)
+    init_J = total_angular_momentum(self%qs0, self%ps0)
+    init_P = total_linear_momentum(self%ps0)
 
     self % t = 0
     self % qs = self % qs0

@@ -5,7 +5,7 @@
 !  This module contains the Parareal simulator.
 !
 !> Modified
-!  2026.06.16
+!  2026.06.18
 !
 !> Created
 !  2026.06.15
@@ -36,10 +36,10 @@ MODULE parareal_simulator_mod
         REAL(pf) :: tolerance
         LOGICAL  :: fine_parallel
 
-        CLASS(integrator_type), POINTER :: coarse_method
+        CLASS(integrator_type), POINTER :: coarse_method => NULL()
         INTEGER :: coarse_dt_mult
         
-        CLASS(integrator_type), POINTER :: fine_method
+        CLASS(integrator_type), POINTER :: fine_method => NULL()
         INTEGER :: fine_dt_mult
 
         CONTAINS
@@ -107,6 +107,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
 
     ! coarse method configs
     CALL msg('[parareal] defining the coarse method', 2)
+    ALLOCATE(self % coarse_method)
     CALL define_method(self % coarse_method, co_method)
     CALL msg('[parareal] initializing the coarse integrator', 2)
     self % coarse_dt_mult = co_dt_mult
@@ -115,6 +116,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
 
     ! fine method configs
     CALL msg('[parareal] defining the fine method', 2)
+    ALLOCATE(self % fine_method)
     CALL define_method(self % fine_method, fi_method)
     CALL msg('[parareal] initializing the fine integrator', 2)
     self % fine_dt_mult = fi_dt_mult
@@ -145,8 +147,8 @@ SUBROUTINE run (self, output_file_par)
     ALLOCATE(p(N,3))
 
     init_E = total_energy(self%masses, self%qs0, self%ps0, 1.0_pf, SQRT(self%coarse_method%forces_method%softening2))
-    init_J = total_linear_momentum(self%ps0)
-    init_P = total_angular_momentum(self%qs0, self%ps0)
+    init_J = total_angular_momentum(self%qs0, self%ps0)
+    init_P = total_linear_momentum(self%ps0)
 
     output_file = -1
     IF (PRESENT(output_file_par)) output_file = output_file_par

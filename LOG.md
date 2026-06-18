@@ -1,5 +1,8 @@
 # LOG.md - Development diary
 
+## [2026-06-18] v0.0.4: Linear and angular momenta...
+- Just one more bug fix.
+
 ## [2026-06-18] v0.0.3: ops
 - Linking utils module to the simulators.
 
