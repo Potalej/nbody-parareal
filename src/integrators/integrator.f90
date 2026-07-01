@@ -6,7 +6,7 @@
 !  integrators in the program.
 !
 !> Modified
-!  2026.06.18
+!  2026.07.01
 !
 !> Created
 !  2026.06.15
@@ -30,15 +30,16 @@ MODULE integrator_mod
         CHARACTER(10) :: forces_method_NAME
         REAL(pf)      :: forces_angle ! parameter 'theta' of Barnes-Hut
         LOGICAL       :: forces_parallel
+        INTEGER       :: forces_threads
         CLASS(forces_type), POINTER :: forces_method => NULL()
 
         CONTAINS
-            PROCEDURE :: init, apply, method
+            PROCEDURE :: init, apply, method, destroy
     END TYPE
 
 CONTAINS
 
-SUBROUTINE init (self, m, dt, fm, fa, fp, G, softening)
+SUBROUTINE init (self, m, dt, fm, fa, fp, G, softening, ft)
     CLASS(integrator_type), INTENT(INOUT) :: self
     REAL(pf), INTENT(IN) :: m(:) ! masses
     REAL(pf), INTENT(IN) :: dt ! timestep
@@ -46,6 +47,7 @@ SUBROUTINE init (self, m, dt, fm, fa, fp, G, softening)
     LOGICAL,  INTENT(IN) :: fp ! forces parallel
     CHARACTER(LEN=*), INTENT(IN) :: fm ! forces method
     REAL(pf), INTENT(IN) :: G, softening ! parameters of the Newtoninan potential
+    INTEGER,  INTENT(IN) :: ft ! number of threads to use parallel forces
     LOGICAL :: use_bh
     INTEGER :: a
 
@@ -56,6 +58,7 @@ SUBROUTINE init (self, m, dt, fm, fa, fp, G, softening)
     self % forces_method_name = fm
     self % forces_angle = fa
     self % forces_parallel = fp
+    self % forces_threads = ft
     
     ! masses
     ALLOCATE(self % masses(self % N))
@@ -70,7 +73,15 @@ SUBROUTINE init (self, m, dt, fm, fa, fp, G, softening)
     IF (TRIM(fm) == "bh") use_bh = .TRUE.
     CALL msg("[integrator] initializing forces", 2)
     ALLOCATE(self % forces_method)
-    CALL self % forces_method % init(fp, use_bh, G, softening, fa)
+    CALL self % forces_method % init(fp, use_bh, G, softening, fa, ft)
+END SUBROUTINE
+
+SUBROUTINE destroy (self)
+    CLASS(integrator_type), INTENT(INOUT) :: self
+
+    DEALLOCATE(self % masses)
+    DEALLOCATE(self % inv_masses)
+    DEALLOCATE(self % forces_method)
 END SUBROUTINE
 
 SUBROUTINE method (self, qs, ps, fs)

@@ -5,7 +5,7 @@
 !  This module contains the Parareal simulator.
 !
 !> Modified
-!  2026.06.18
+!  2026.07.01
 !
 !> Created
 !  2026.06.15
@@ -35,6 +35,7 @@ MODULE parareal_simulator_mod
         INTEGER  :: number_of_windows, N_itermax
         REAL(pf) :: tolerance
         LOGICAL  :: fine_parallel
+        INTEGER  :: par_threads ! number of threads of parallel Parareal
 
         CLASS(integrator_type), POINTER :: coarse_method => NULL()
         INTEGER :: coarse_dt_mult
@@ -43,7 +44,7 @@ MODULE parareal_simulator_mod
         INTEGER :: fine_dt_mult
 
         CONTAINS
-            PROCEDURE :: init, run
+            PROCEDURE :: init, run, destroy
             PROCEDURE :: apply_coarse, apply_fine
     END TYPE
 
@@ -51,9 +52,9 @@ CONTAINS
 
 SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
                 tf, G, & ! simulation configs
-                num_of_windows, N_itermax, tolerance, fine_parallel, & ! parareal configs
-                co_method, co_dt_mult, co_fm, co_fa, co_fs, co_fp, & ! coarse
-                fi_method, fi_dt_mult, fi_fm, fi_fa, fi_fs, fi_fp &  ! fine
+                num_of_windows, N_itermax, tolerance, fine_parallel, par_threads, & ! parareal configs
+                co_method, co_dt_mult, co_fm, co_fa, co_fs, co_fp, co_ft, & ! coarse
+                fi_method, fi_dt_mult, fi_fm, fi_fa, fi_fs, fi_fp, fi_ft &  ! fine
                 )
     CLASS(parareal_simulation_type), INTENT(INOUT) :: self
     ! simulation parameters
@@ -65,6 +66,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
     ! parareal configs
     INTEGER,  INTENT(IN) :: num_of_windows, N_itermax
     REAL(pf), INTENT(IN) :: tolerance
+    INTEGER,  INTENT(IN) :: par_threads
     LOGICAL,  INTENT(IN) :: fine_parallel ! fine parallel
     ! coarse method parameters
     CHARACTER(*), INTENT(IN) :: co_method, co_fm ! coarse method, coarse forces method
@@ -72,12 +74,14 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
     REAL(pf),     INTENT(IN) :: co_fa ! coarse forces angle
     REAL(pf),     INTENT(IN) :: co_fs ! coarse forces softening
     LOGICAL,      INTENT(IN) :: co_fp ! coarse forces parallel
+    INTEGER,      INTENT(IN) :: co_ft ! coarse number of threads in parallel forces
     ! fine method parameters
     CHARACTER(*), INTENT(IN) :: fi_method, fi_fm ! fine method, fine forces method
     INTEGER,      INTENT(IN) :: fi_dt_mult ! fine how many steps
     REAL(pf),     INTENT(IN) :: fi_fa ! fine forces angle
     REAL(pf),     INTENT(IN) :: fi_fs ! fine forces softening
     LOGICAL,      INTENT(IN) :: fi_fp ! fine forces parallel
+    INTEGER,      INTENT(IN) :: fi_ft ! fine number of threads in parallel forces
 
     ! local variables
     REAL(pf) :: coarse_dt, fine_dt
@@ -104,6 +108,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
     self % N_itermax = N_itermax
     self % tolerance = tolerance
     self % fine_parallel = fine_parallel
+    self % par_threads = par_threads
 
     ! coarse method configs
     CALL msg('[parareal] defining the coarse method', 2)
@@ -112,7 +117,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
     CALL msg('[parareal] initializing the coarse integrator', 2)
     self % coarse_dt_mult = co_dt_mult
     coarse_dt = tf / (co_dt_mult * num_of_windows)
-    CALL self % coarse_method % init(m, coarse_dt, co_fm, co_fa, co_fp, G, co_fs)
+    CALL self % coarse_method % init(m, coarse_dt, co_fm, co_fa, co_fp, G, co_fs, co_ft)
 
     ! fine method configs
     CALL msg('[parareal] defining the fine method', 2)
@@ -121,9 +126,20 @@ SUBROUTINE init (self, N, m, qs0, ps0, & ! initial values
     CALL msg('[parareal] initializing the fine integrator', 2)
     self % fine_dt_mult = fi_dt_mult
     fine_dt = tf / (fi_dt_mult * num_of_windows)
-    CALL self % fine_method % init(m, fine_dt, fi_fm, fi_fa, fi_fp, G, fi_fs)
+    CALL self % fine_method % init(m, fine_dt, fi_fm, fi_fa, fi_fp, G, fi_fs, fi_ft)
 
     CALL msg('[parareal] initialized', 2)
+END SUBROUTINE
+
+SUBROUTINE destroy (self)
+    CLASS(parareal_simulation_type), INTENT(INOUT) :: self
+    
+    DEALLOCATE(self % masses)
+    DEALLOCATE(self % qs0, self % ps0, self % qs, self % ps)
+    CALL self % coarse_method % destroy()
+    DEALLOCATE(self % coarse_method)
+    CALL self % fine_method % destroy()
+    DEALLOCATE(self % fine_method)
 END SUBROUTINE
 
 SUBROUTINE run (self, output_file_par)
@@ -133,7 +149,6 @@ SUBROUTINE run (self, output_file_par)
     REAL(pf), ALLOCATABLE :: U0(:,:)
     REAL(pf), ALLOCATABLE :: U(:,:,:,:)
     REAL(pf), ALLOCATABLE :: U_tilde(:,:,:)
-    REAL(pf), ALLOCATABLE :: U_comp(:,:,:)
     INTEGER  :: i, iterations
     REAL(pf) :: error
     INTEGER :: N
@@ -163,7 +178,6 @@ SUBROUTINE run (self, output_file_par)
     U = 0.0_pf
 
     ALLOCATE(U_tilde(self % number_of_windows, 2*N, 3))
-    ALLOCATE(U_comp(self % number_of_windows, 2*N, 3))
 
     ! coarse application (zeroth iteration)
     U(1,1,:,:) = U0
@@ -180,23 +194,26 @@ SUBROUTINE run (self, output_file_par)
         WRITE(*,'(A)') "---------------------------------------------------"
 
         IF (self % fine_parallel) THEN
-            !$OMP PARALLEL PRIVATE(i)
+            !$OMP PARALLEL PRIVATE(i) NUM_THREADS(self%par_threads)
             !$OMP DO
-            DO i = 1, self % number_of_windows - 1
+            DO i = iterations, self % number_of_windows - 1
                 U_tilde(i+1,:,:) = self % apply_fine(U(iterations,i,:,:))
             END DO
             !$OMP END DO
             !$OMP END PARALLEL
         ELSE
-            DO i = 1, self % number_of_windows - 1
+            DO i = iterations, self % number_of_windows - 1
                 U_tilde(i+1,:,:) = self % apply_fine(U(iterations,i,:,:))
             END DO
         ENDIF
 
-        DO i = 1, self % number_of_windows - 1
+        IF (iterations >= 2) THEN
+            U(iterations+1,2:iterations,:,:) = U(iterations,2:iterations,:,:)
+        ENDIF
+
+        DO i = iterations, self % number_of_windows - 1
             U(iterations+1,i+1,:,:) = self % apply_coarse(U(iterations+1,i,:,:)) + U_tilde(i+1,:,:)
             U(iterations+1,i+1,:,:) = U(iterations+1,i+1,:,:) - self % apply_coarse(U(iterations,i,:,:))
-            ! PRINT *, NORM2(U(iterations+1,i+1,:,:) - U(iterations,i+1,:,:))
         END DO
 
         timer_1 = omp_get_wtime()
@@ -220,7 +237,7 @@ SUBROUTINE run (self, output_file_par)
     END DO
 
     WRITE(*,"(A)") "Simulation complete!"
-    WRITE(*,"(A,E12.3)") "Total time:", omp_get_wtime() - timer_0
+    WRITE(*,"(A,E12.3)") "Total time:", timer_total
     WRITE(*,"(A,I4)") "Iterations:", iterations
     WRITE(*,"(A,E12.3)") "Final rel. error:", error
     WRITE(*,'(A15," = ",ES12.4)') '||E - E_0||', error_E
@@ -235,17 +252,17 @@ SUBROUTINE run (self, output_file_par)
         END DO
     ENDIF
 
-    DEALLOCATE(U, U0, U_tilde)
+    DEALLOCATE(U, U0, U_tilde, q, p)
 END SUBROUTINE
 
 FUNCTION apply_coarse (self, U) RESULT(U_out)
     CLASS(parareal_simulation_type), INTENT(INOUT) :: self
-    REAL(pf), DIMENSION(2*self % N, 3), INTENT(IN) :: U
+    REAL(pf), DIMENSION(:,:), INTENT(IN) :: U
     REAL(pf), DIMENSION(2*self % N, 3) :: U_out
-    REAL(pf), DIMENSION(self % N, 3) :: qs, ps, fs
+    REAL(pf), DIMENSION(self % N, 3)   :: qs, ps, fs
     INTEGER :: step
     LOGICAL :: eval_forces
-    
+
     qs = U(1:self%N,:)
     ps = U(self%N+1:,:)
 
@@ -260,9 +277,9 @@ END FUNCTION
 
 FUNCTION apply_fine (self, U) RESULT(U_out)
     CLASS(parareal_simulation_type), INTENT(INOUT) :: self
-    REAL(pf), DIMENSION(2*self % N, 3), INTENT(IN) :: U
+    REAL(pf), DIMENSION(:,:), INTENT(IN) :: U
     REAL(pf), DIMENSION(2*self % N, 3) :: U_out
-    REAL(pf), DIMENSION(self % N, 3) :: qs, ps, fs
+    REAL(pf), DIMENSION(self % N, 3)   :: qs, ps, fs
     INTEGER :: step
     LOGICAL :: eval_forces
 

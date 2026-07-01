@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project("nbody_parareal" VERSION 0.0.4
+project("nbody_parareal" VERSION 0.0.5
         DESCRIPTION "Nbody solver using the Parareal method!"
         LANGUAGES Fortran)
 enable_language(Fortran)

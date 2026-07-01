@@ -6,7 +6,7 @@
 !  of input parameters.
 !
 !> Modified
-!  2026.06.15
+!  2026.07.01
 !
 !> Created
 !  2026.06.15
@@ -185,6 +185,7 @@ SUBROUTINE run_sequential (json_data, output_file, m, qs, ps)
     LOGICAL       :: fpar
     CHARACTER(30) :: fmethod
     CHARACTER(30) :: method
+    INTEGER       :: ft
 
     CALL msg('[main.run_sequential] getting information about the simulation', 2)
     method = json_get_string(json_data, "integration.method")
@@ -197,14 +198,19 @@ SUBROUTINE run_sequential (json_data, output_file, m, qs, ps)
     fangle = json_get_float(json_data, 'integration.forces_angle')
     fpar = json_get_logical(json_data, 'integration.forces_parallel')
     fmethod = json_get_string(json_data, 'integration.forces_method')
+    ft = json_get_int(json_data, 'integration.forces_threads')
 
     CALL msg('[main.run_sequential] initializing the sequential simulator', 2)
     ALLOCATE(simulation)
     CALL simulation % init(N, m, qs, ps, & ! initial values
         dt, tf, method, checkpoints, & ! method parameters
-        G, fsoft, fangle, fpar, fmethod & ! forces parameters
+        G, fsoft, fangle, fpar, fmethod, ft & ! forces parameters
     )
     CALL simulation % run(output_file)
+
+    ! free up memory
+    CALL simulation % destroy()
+    DEALLOCATE(simulation)
 END SUBROUTINE
 
 ! to simulate parallel (in time) via parareal
@@ -222,18 +228,21 @@ SUBROUTINE run_parareal (json_data, output_file, m, qs, ps)
     INTEGER  :: number_of_windows, N_itermax
     REAL(pf) :: tolerance
     LOGICAL  :: fine_parallel
+    INTEGER  :: par_threads
 
     ! coarse method
     CHARACTER(30) :: co_method, co_fmethod
     INTEGER       :: co_dt_mult
     REAL(pf)      :: co_fa, co_fs
     LOGICAL       :: co_fp
+    INTEGER       :: co_ft
 
     ! fine method
     CHARACTER(30) :: fi_method, fi_fmethod
     INTEGER       :: fi_dt_mult
     REAL(pf)      :: fi_fa, fi_fs
     LOGICAL       :: fi_fp
+    INTEGER       :: fi_ft
     
     CALL msg('[main.run_parareal] getting information about the simulation', 2)
     N = json_get_int(json_data, 'N')
@@ -246,6 +255,7 @@ SUBROUTINE run_parareal (json_data, output_file, m, qs, ps)
     N_itermax = json_get_int(json_data, 'integration.N_itermax')
     tolerance = json_get_float(json_data, 'integration.tolerance')
     fine_parallel = json_get_logical(json_Data, 'integration.parareal_parallel')
+    par_threads = json_get_int(json_data, 'integration.parareal_threads')
 
     ! coarse
     co_method = json_get_string(json_data, 'integration.coarse.method')
@@ -254,6 +264,7 @@ SUBROUTINE run_parareal (json_data, output_file, m, qs, ps)
     co_fa = json_get_float(json_data, 'integration.coarse.forces_angle')
     co_fp = json_get_logical(json_data, 'integration.coarse.forces_parallel')
     co_fs = softening
+    co_ft = json_get_int(json_data, 'integration.coarse.forces_threads')
 
     ! fine
     fi_method = json_get_string(json_data, 'integration.fine.method')
@@ -262,14 +273,15 @@ SUBROUTINE run_parareal (json_data, output_file, m, qs, ps)
     fi_fa = json_get_float(json_data, 'integration.fine.forces_angle')
     fi_fp = json_get_logical(json_data, 'integration.fine.forces_parallel')
     fi_fs = softening
+    fi_ft = json_get_int(json_data, 'integration.fine.forces_threads')
 
     CALL msg('[main.run_parareal] initializing the parareal simulator', 2)
     ALLOCATE(parareal)
     CALL parareal % init(N, m, qs, ps, & ! initial values
         tf, G, & ! simulation configs
-        number_of_windows, N_itermax, tolerance, fine_parallel, & ! parareal configs
-        co_method, co_dt_mult, co_fmethod, co_fa, co_fs, co_fp, & ! coarse
-        fi_method, fi_dt_mult, fi_fmethod, fi_fa, fi_fs, fi_fp &  ! fine
+        number_of_windows, N_itermax, tolerance, fine_parallel, par_threads, & ! parareal configs
+        co_method, co_dt_mult, co_fmethod, co_fa, co_fs, co_fp, co_ft, & ! coarse
+        fi_method, fi_dt_mult, fi_fmethod, fi_fa, fi_fs, fi_fp, fi_ft &  ! fine
     )
     CALL parareal % run(output_file)
 END SUBROUTINE

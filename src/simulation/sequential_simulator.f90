@@ -6,7 +6,7 @@
 !  classical N-body simulator.
 !
 !> Modified
-!  2026.06.18
+!  2026.07.01
 !
 !> Created
 !  2026.06.15
@@ -34,11 +34,11 @@ MODULE sequential_simulator_mod
         REAL(pf), ALLOCATABLE, DIMENSION(:,:) :: qs, ps, fs
 
         CONTAINS
-            PROCEDURE :: init, run
+            PROCEDURE :: init, run, destroy
     END TYPE
 CONTAINS
 
-SUBROUTINE init (self, N, m, qs0, ps0, dt, tf, method, checkpoints, G, fsoft, fangle, fpar, fmethod)
+SUBROUTINE init (self, N, m, qs0, ps0, dt, tf, method, checkpoints, G, fsoft, fangle, fpar, fmethod, fthreads)
     CLASS(sequential_simulation_type), INTENT(INOUT) :: self
     ! simulation parameters
     INTEGER,      INTENT(IN) :: N, checkpoints
@@ -48,6 +48,7 @@ SUBROUTINE init (self, N, m, qs0, ps0, dt, tf, method, checkpoints, G, fsoft, fa
     REAL(pf),     INTENT(IN) :: G, fsoft, fangle
     LOGICAL,      INTENT(IN) :: fpar
     CHARACTER(*), INTENT(IN) :: fmethod
+    INTEGER,      INTENT(IN) :: fthreads
     ! initial values
     REAL(pf), DIMENSION(N),   INTENT(IN) :: m
     REAL(pf), DIMENSION(N,3), INTENT(IN) :: qs0, ps0
@@ -79,7 +80,16 @@ SUBROUTINE init (self, N, m, qs0, ps0, dt, tf, method, checkpoints, G, fsoft, fa
     ALLOCATE(self % integrator)
     CALL define_method(self % integrator, method)
     CALL msg('[seq. sim.] initializing the integrator', 2)
-    CALL self % integrator % init(m, dt, fmethod, fangle, fpar, G, fsoft)
+    CALL self % integrator % init(m, dt, fmethod, fangle, fpar, G, fsoft, fthreads)
+END SUBROUTINE
+
+SUBROUTINE destroy (self)
+    CLASS(sequential_simulation_type), INTENT(INOUT) :: self
+
+    DEALLOCATE(self % masses)
+    DEALLOCATE(self % qs0, self % ps0, self % qs, self % ps, self % fs)
+    CALL self % integrator % destroy()
+    DEALLOCATE(self % integrator)
 END SUBROUTINE
 
 SUBROUTINE run (self, output_file_par)
@@ -90,7 +100,7 @@ SUBROUTINE run (self, output_file_par)
     LOGICAL :: eval_forces
 
     REAL(pf) :: init_E, init_J(3), init_P(3), error_E, error_J, error_P
-    REAL(pf) :: timer_0
+    REAL(pf) :: timer_0, timer_1, timer_total
 
     INTEGER :: total_steps, number_substeps, substep
 
@@ -115,24 +125,29 @@ SUBROUTINE run (self, output_file_par)
         self % t = self % t + self % dt
 
         CALL self % integrator % apply(self % qs, self % ps, self % fs, eval_forces)
+        
         IF (output_file > 0) WRITE(output_file,*) self % qs, self % ps
 
         substep = substep + 1
         IF (substep == number_substeps) THEN
+            timer_1 = omp_get_wtime()
+            timer_total = timer_total + timer_1 - timer_0
             substep = 0
             error_E = ABS(total_energy(self%masses, self%qs, self%ps, self % G, self % softening) - init_E)
             error_J = NORM2(total_angular_momentum(self%qs, self%ps) - init_J)
             error_P = NORM2(total_linear_momentum(self%ps) - init_P)
 
-            WRITE(*,"(A4,E12.5, A17,E12.3)") "t = ", self % t, " / time elapsed: ", omp_get_wtime() - timer_0
+            WRITE(*,"(A4,E12.5, A17,E12.3)") "t = ", self % t, " / time elapsed: ", timer_1 - timer_0
             WRITE(*,'(A15," = ",ES12.4)') '||E - E_0||', error_E
             WRITE(*,'(A15," = ",ES12.4)') '||J - J_0||', error_J
             WRITE(*,'(A15," = ",ES12.4)') '||P - P_0||', error_P
             WRITE(*,*)
+
+            timer_0 = omp_get_wtime()
         ENDIF
     END DO
 
-    WRITE(*,"(A,E12.3)") "Simulation complete! Total time:", omp_get_wtime() - timer_0
+    WRITE(*,"(A,E12.3)") "Simulation complete! Total time:", timer_total
 
     error_E = ABS(total_energy(self%masses, self%qs, self%ps, self % G, self % softening) - init_E)
     error_J = NORM2(total_angular_momentum(self%qs, self%ps) - init_J)

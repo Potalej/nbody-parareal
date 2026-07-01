@@ -22,13 +22,15 @@
         "N_itermax": 15,
         "tolerance": 1e-20,
         "parareal_parallel": true,
+        "parareal_threads": 30,
 
         "coarse": {
             "method": "symp_euler",
             "dt_mult": 1,
             "forces_method": "bh",
             "forces_angle": 1.0,
-            "forces_parallel": true
+            "forces_parallel": true,
+            "forces_threads": 30
         },
 
         "fine": {
@@ -36,7 +38,8 @@
             "dt_mult": 8,
             "forces_method": "direct",
             "forces_angle": 0.0,
-            "forces_parallel": false
+            "forces_parallel": false,
+            "forces_threads": 0
         }
     }
 }

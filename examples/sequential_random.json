@@ -24,6 +24,7 @@
 
         "forces_method": "direct",
         "forces_angle": 0.0,
-        "forces_parallel": false
+        "forces_parallel": true,
+        "forces_threads": 30
     }
 }

@@ -7,7 +7,7 @@
 !  the integrator_type.
 !
 !> Modified
-!  2026.06.16
+!  2026.07.01
 !
 !> Created
 !  2026.06.15
@@ -19,17 +19,19 @@ MODULE forces_mod
     USE configs_mod
     USE octree_mod
     USE types_mod
+    USE omp_lib
     IMPLICIT NONE
     PUBLIC forces_type
 
     ABSTRACT INTERFACE
-        FUNCTION forces_function (N, ms, qs, G, eps2, angle2)
+        FUNCTION forces_function (N, ms, qs, G, eps2, angle2, nt)
             IMPORT :: pf
             IMPLICIT NONE
             INTEGER,                  INTENT(IN) :: N
             REAL(pf), DIMENSION(N),   INTENT(IN) :: ms
             REAL(pf), DIMENSION(N,3), INTENT(IN) :: qs
             REAL(pf),                 INTENT(IN) :: G, eps2, angle2
+            INTEGER,                  INTENT(IN) :: nt
             REAL(pf), DIMENSION(N,3) :: forces_function
         END FUNCTION
     END INTERFACE
@@ -38,6 +40,7 @@ MODULE forces_mod
         REAL(pf) :: softening2
         REAL(pf) :: G
         REAL(pf) :: angle2
+        INTEGER  :: num_threads
         PROCEDURE(forces_function), POINTER, NOPASS :: forces_function => NULL()
         CONTAINS
             PROCEDURE :: init => init_forces
@@ -46,10 +49,11 @@ MODULE forces_mod
 
 CONTAINS
 
-SUBROUTINE init_forces (self, use_parallel, use_bh, G, softening, angle)
+SUBROUTINE init_forces (self, use_parallel, use_bh, G, softening, angle, ft)
     CLASS(forces_type), INTENT(INOUT) :: self
     LOGICAL,  INTENT(IN) :: use_parallel, use_bh
     REAL(pf), INTENT(IN) :: G, softening, angle
+    INTEGER,  INTENT(IN), OPTIONAL :: ft ! forces number of threads
 
     CALL msg("[forces] initializing", 2)
 
@@ -77,6 +81,10 @@ SUBROUTINE init_forces (self, use_parallel, use_bh, G, softening, angle)
 
     ! parameter of the Barnes-Hut method
     self % angle2 = angle * angle
+
+    ! parallel forces number of threads
+    self % num_threads = 1
+    IF (PRESENT(ft)) self % num_threads = ft
 END SUBROUTINE
 
 FUNCTION eval (self, N, ms, qs) RESULT(forces)
@@ -85,11 +93,11 @@ FUNCTION eval (self, N, ms, qs) RESULT(forces)
     REAL(pf), INTENT(IN) :: ms(N), qs(N,3)
     REAL(pf) :: forces(N,3)
 
-    forces = self % forces_function(N, ms, qs, self % G, self % softening2, self % angle2)
+    forces = self % forces_function(N, ms, qs, self % G, self % softening2, self % angle2, self % num_threads)
 END FUNCTION
 
-FUNCTION compute_forces_direct (N, ms, qs, G, eps2, angle2) RESULT(forces)
-    INTEGER,  INTENT(IN) :: N
+FUNCTION compute_forces_direct (N, ms, qs, G, eps2, angle2, nt) RESULT(forces)
+    INTEGER,  INTENT(IN) :: N, nt
     REAL(pf), INTENT(IN) :: ms(N), qs(N,3), G, eps2, angle2
     REAL(pf) :: forces(N,3), dist2, dist, f
     REAL(pf) :: dx, dy, dz
@@ -120,8 +128,8 @@ FUNCTION compute_forces_direct (N, ms, qs, G, eps2, angle2) RESULT(forces)
     END DO
 END FUNCTION
 
-FUNCTION compute_forces_direct_par (N, ms, qs, G, eps2, angle2) RESULT(forces)
-    INTEGER,  INTENT(IN) :: N
+FUNCTION compute_forces_direct_par (N, ms, qs, G, eps2, angle2, nt) RESULT(forces)
+    INTEGER,  INTENT(IN) :: N, nt
     REAL(pf), INTENT(IN) :: ms(N), qs(N,3), G, eps2, angle2
     REAL(pf) :: forces(N,3), dist2, dist, f
     REAL(pf) :: dx, dy, dz
@@ -129,7 +137,7 @@ FUNCTION compute_forces_direct_par (N, ms, qs, G, eps2, angle2) RESULT(forces)
 
     forces = 0.0_pf
 
-    !$OMP PARALLEL SHARED(forces) PRIVATE(a, b, dx, dy, dz, dist2, dist, f)
+    !$OMP PARALLEL SHARED(forces) PRIVATE(a, b, dx, dy, dz, dist2, dist, f) NUM_THREADS(nt)
     !$OMP DO
     DO a = 1, N
         DO b = 1, N
@@ -154,8 +162,8 @@ FUNCTION compute_forces_direct_par (N, ms, qs, G, eps2, angle2) RESULT(forces)
 END FUNCTION
 
 ! compute forces using the barnes-hut method (sequential)
-FUNCTION compute_forces_bh (N, ms, qs, G, eps2, angle2) RESULT (forces)
-    INTEGER,  INTENT(IN) :: N
+FUNCTION compute_forces_bh (N, ms, qs, G, eps2, angle2, nt) RESULT (forces)
+    INTEGER,  INTENT(IN) :: N, nt
     REAL(pf), INTENT(IN) :: ms(N), qs(N,3)
     REAL(pf), INTENT(IN) :: G, eps2, angle2
 
@@ -171,8 +179,8 @@ FUNCTION compute_forces_bh (N, ms, qs, G, eps2, angle2) RESULT (forces)
 END FUNCTION
 
 ! compute forces using the barnes-hut method (parallel)
-FUNCTION compute_forces_bh_par (N, ms, qs, G, eps2, angle2) RESULT (forces)
-    INTEGER,  INTENT(IN) :: N
+FUNCTION compute_forces_bh_par (N, ms, qs, G, eps2, angle2, nt) RESULT (forces)
+    INTEGER,  INTENT(IN) :: N, nt
     REAL(pf), INTENT(IN) :: ms(N), qs(N,3)
     REAL(pf), INTENT(IN) :: G, eps2, angle2
 
@@ -180,9 +188,9 @@ FUNCTION compute_forces_bh_par (N, ms, qs, G, eps2, angle2) RESULT (forces)
     INTEGER :: p
     REAL(pf) :: forces(N, 3)
 
-    CALL tree % init(ms, qs(:,1), qs(:,2), qs(:,3), .FALSE.)
+    CALL tree % init(ms, qs(:,1), qs(:,2), qs(:,3), .TRUE.)
 
-    !$OMP PARALLEL SHARED(forces) PRIVATE(p) 
+    !$OMP PARALLEL SHARED(forces) PRIVATE(p) NUM_THREADS(nt)
     !$OMP DO
     DO p = 1, N
         forces(p,:) = tree % forces(p, angle2, G, eps2)
